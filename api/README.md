@@ -1,19 +1,5 @@
 # OpenTelemetry E-commerce API
 
-A robust Node.js e-commerce API fully instrumented with OpenTelemetry, designed to send telemetry data to Sentry via OTLP (OpenTelemetry Protocol).
-
-## Features
-
-- **Full OpenTelemetry Instrumentation**: Automatic and manual instrumentation for traces
-- **Sentry Integration**: OTLP traces and logs sent directly to Sentry
-- **Real-world E-commerce Logic**: Products, orders, inventory management, and payment processing
-- **Database Operations**: PostgreSQL with connection pooling and transactions
-- **Caching Layer**: Redis with cache hit/miss tracking
-- **External API Simulation**: Payment gateway simulation with random failures
-- **Error Handling**: Comprehensive error scenarios for testing
-- **Custom Spans & Events**: Manual instrumentation examples throughout
-- **Load Testing**: Built-in load test script to generate traffic
-
 ## Architecture
 
 ```
@@ -38,66 +24,59 @@ A robust Node.js e-commerce API fully instrumented with OpenTelemetry, designed 
 ```
 
 This application supports two export modes:
+
 - **Direct**: App → Sentry (default)
 - **Collector**: App → OpenTelemetry Collector → Sentry
-
-## Prerequisites
-
-- Node.js 18+ (with ES modules support)
-- Docker and Docker Compose
-- Sentry account with OTLP enabled
 
 ## Quick Start
 
 ### 1. Clone and Install
 
 ```bash
-cd otel-ecommerce-api
+cd api
 npm install
 ```
 
-### 2. Start Infrastructure
+### 2. Setup Database
+
+Create a free PostgreSQL database with Neon:
 
 ```bash
-docker compose up -d
+npx neonctl@latest projects create --name sentry-build-otlp-workshop -y
 ```
 
-This starts:
-- PostgreSQL on port 5432
-- Redis on port 6379
+Copy the connection string provided (looks like `postgresql://user:pass@host.neon.tech/neondb?sslmode=require`)
 
-**Note:** If you have an older Docker installation, use `docker-compose up -d` instead.
+### 3. Configure Environment
 
-### 3. Configure Sentry
-
-Copy the example environment file:
+Copy the example environment file and configure:
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` and configure your Sentry OTLP endpoints:
+Edit `.env` and add:
+
+1. Your **Neon database URL** from Step 2:
 
 ```bash
-# Get these from Sentry: Project Settings > Client Keys (DSN)
-OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=https://YOUR-ORG.ingest.sentry.io/api/YOUR-PROJECT-ID/otlp/v1/traces
+DATABASE_URL=postgresql://user:pass@host.neon.tech/neondb?sslmode=require
+```
+
+2. Your **Sentry OTLP endpoints** (get from Sentry: Project Settings > Client Keys):
+
+```bash
+OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=https://YOUR-ORG.ingest.sentry.io/api/YOUR-PROJECT-ID/integration/otlp/v1/traces
 OTEL_EXPORTER_OTLP_TRACES_HEADERS="x-sentry-auth=sentry sentry_key=YOUR_PUBLIC_KEY"
 ```
 
-**How to get Sentry OTLP credentials:**
-1. Go to your Sentry project
-2. Navigate to **Settings > Client Keys (DSN)**
-3. Find your **Public Key** and **Project ID**
-4. Construct the endpoint URL: `https://{ORG}.ingest.sentry.io/api/{PROJECT_ID}/otlp/v1/traces`
-5. Format the auth header: `"x-sentry-auth=sentry sentry_key={PUBLIC_KEY}"`
-
-### 4. Setup Database
+### 4. Initialize Database
 
 ```bash
 npm run db:setup
 ```
 
-This creates tables and seeds sample data (users, products).
+This creates tables and seeds sample data (users, products) in your Neon database.
 
 ### 5. Start the Application
 
@@ -116,11 +95,13 @@ The API will be available at `http://localhost:3000`
 ## API Endpoints
 
 ### Health Check
+
 ```bash
 GET /health
 ```
 
 ### Products
+
 ```bash
 # Get all products
 GET /api/products
@@ -133,6 +114,7 @@ GET /api/products/search?q=laptop
 ```
 
 ### Orders
+
 ```bash
 # Create order
 POST /api/orders
@@ -181,6 +163,7 @@ npm test
 ```
 
 This will:
+
 - Fetch products (testing cache)
 - Create orders (testing transactions)
 - Trigger various error scenarios
@@ -190,12 +173,14 @@ This will:
 ## OpenTelemetry Features Demonstrated
 
 ### Auto-Instrumentation
+
 - ✅ HTTP requests (incoming/outgoing)
 - ✅ Express routes
 - ✅ PostgreSQL queries
-- ✅ Redis operations
+- ✅ In-memory cache operations
 
 ### Manual Instrumentation
+
 - ✅ Custom spans for business logic
 - ✅ Custom attributes (user IDs, order IDs, SKUs)
 - ✅ Events (cache hits, payment failures)
@@ -205,6 +190,7 @@ This will:
 ### Example Traces in Sentry
 
 **Order Creation Flow:**
+
 ```
 POST /api/orders
   ├─ order.create
@@ -215,7 +201,7 @@ POST /api/orders
   │   ├─ BEGIN/INSERT/COMMIT (Transaction)
   │   ├─ inventory.reserve
   │   │   ├─ UPDATE products (Postgres)
-  │   │   └─ cache.delete (Redis)
+  │   │   └─ cache.delete (in-memory)
   │   └─ payment.process
   │       └─ [External API simulation]
 ```
@@ -232,58 +218,18 @@ The application includes realistic error scenarios:
 
 All errors are captured in spans and sent to Sentry with full context.
 
-## Project Structure
-
-```
-otel-ecommerce-api/
-├── instrumentation.js          # OTEL SDK initialization
-├── src/
-│   ├── app.js                  # Express app setup
-│   ├── server.js               # Server entry point
-│   ├── routes/
-│   │   ├── health.js           # Health checks
-│   │   ├── products.js         # Product endpoints
-│   │   └── orders.js           # Order endpoints
-│   ├── services/
-│   │   ├── database.js         # PostgreSQL client
-│   │   ├── cache.js            # Redis client (instrumented)
-│   │   ├── payment.js          # Payment simulation (instrumented)
-│   │   └── inventory.js        # Inventory management (instrumented)
-│   ├── middleware/
-│   │   ├── errorHandler.js     # Global error handler
-│   │   └── validator.js        # Request validation
-│   └── utils/
-│       ├── tracer.js           # Manual instrumentation helpers
-│       ├── setupDatabase.js    # DB schema & seeds
-│       └── loadTest.js         # Load testing script
-├── docker-compose.yml          # PostgreSQL + Redis
-├── package.json
-└── .env                        # Configuration
-```
-
 ## Configuration
 
 Key environment variables:
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `PORT` | Server port | 3000 |
-| `NODE_ENV` | Environment | development |
-| `DATABASE_URL` | PostgreSQL connection string | See .env.example |
-| `REDIS_URL` | Redis connection string | redis://localhost:6379 |
-| `OTEL_SERVICE_NAME` | Service name in traces | otel-ecommerce-api |
-| `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` | Sentry OTLP endpoint | (required) |
-| `OTEL_EXPORTER_OTLP_TRACES_HEADERS` | Sentry auth header | (required) |
-
-## Observability in Sentry
-
-Once running, you'll see in Sentry:
-
-1. **Transactions**: Full request traces with nested spans
-2. **Performance**: Bottleneck identification (slow queries, cache misses)
-3. **Errors**: Captured errors with trace context
-4. **Service Graph**: Dependencies between database, cache, and external services
-5. **Custom Attributes**: Business context (order IDs, user emails, SKUs)
+| Variable                             | Description                       | Default                        |
+| ------------------------------------ | --------------------------------- | ------------------------------ |
+| `PORT`                               | Server port                       | 3000                           |
+| `NODE_ENV`                           | Environment                       | development                    |
+| `DATABASE_URL`                       | Neon PostgreSQL connection string | (required)                     |
+| `OTEL_SERVICE_NAME`                  | Service name in traces            | sentry-build-otlp-workshop-api |
+| `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` | Sentry OTLP endpoint              | (required)                     |
+| `OTEL_EXPORTER_OTLP_TRACES_HEADERS`  | Sentry auth header                | (required)                     |
 
 ## Development Tips
 
@@ -321,39 +267,23 @@ Queries taking >1s are logged to console. Check your application logs.
 ## Troubleshooting
 
 **Can't connect to database:**
-```bash
-docker compose ps
-# Make sure postgres is running
-docker compose logs postgres
-```
 
-**Redis connection failed:**
-```bash
-docker compose ps
-# Make sure redis is running
-docker compose restart redis
-```
+- Verify your DATABASE_URL is correct in .env
+- Make sure it includes `?sslmode=require` at the end
+- Check your Neon project is active at https://console.neon.tech
 
 **Not seeing traces in Sentry:**
+
 1. Verify your OTLP endpoint URL is correct
 2. Check that your Sentry public key is valid
 3. Ensure the environment variables are properly set (no typos)
 4. Enable OTEL debug logging to see export attempts
 
 **Port already in use:**
+
 ```bash
 # Change PORT in .env
 PORT=3001
-```
-
-## Cleanup
-
-```bash
-# Stop services
-docker compose down
-
-# Remove volumes (deletes data)
-docker compose down -v
 ```
 
 ## Switching Export Modes
@@ -365,37 +295,16 @@ Switch between direct export to Sentry and using an OpenTelemetry Collector:
 npm run mode:direct
 npm start
 
-# Collector Mode (App → Collector → Sentry)  
+# Collector Mode (App → Collector → Sentry)
 npm run mode:collector
-npm run collector:start
 npm start
 
 # Check current mode
 npm run mode:status
+
+# Health check for collector (if running)
+npm run collector:health
 ```
-
-### Collector Commands
-
-```bash
-npm run collector:start    # Start collector
-npm run collector:stop     # Stop collector
-npm run collector:logs     # View logs
-npm run collector:health   # Health check
-```
-
-## Next Steps
-
-- Try switching between direct and collector modes
-- Add more endpoints (PATCH, DELETE)
-- Implement authentication/authorization
-- Add second microservice for distributed tracing
-- Configure custom sampling/filtering in `collector-config.yaml`
-
-## Resources
-
-- [OpenTelemetry Node.js Docs](https://opentelemetry.io/docs/languages/js/)
-- [Sentry OTLP Integration](https://docs.sentry.io/concepts/otlp/)
-- [OpenTelemetry Semantic Conventions](https://opentelemetry.io/docs/concepts/semantic-conventions/)
 
 ## License
 

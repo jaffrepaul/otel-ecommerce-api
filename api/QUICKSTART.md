@@ -2,13 +2,36 @@
 
 Get the OpenTelemetry E-commerce API running in 5 minutes!
 
+## Prerequisites
+
+- Node.js 18+
+- Free Neon account (sign up at https://neon.tech)
+
 ## Step 1: Install Dependencies
 
 ```bash
 npm install
 ```
 
-## Step 2: Configure Sentry
+## Step 2: Setup Database with Neon
+
+Create a free PostgreSQL database:
+
+```bash
+npx neondb -y
+```
+
+This will:
+- Prompt you to login/signup to Neon (opens browser)
+- Create a new Neon project
+- Display a connection string
+
+**Copy the connection string** - it looks like:
+```
+postgresql://user:password@ep-xyz-123.us-east-2.aws.neon.tech/neondb?sslmode=require
+```
+
+## Step 3: Configure Environment
 
 1. Copy the environment file:
 
@@ -16,43 +39,28 @@ npm install
 cp .env.example .env
 ```
 
-2. Get your Sentry OTLP credentials:
-
-   - Go to [Sentry](https://sentry.io)
-   - Navigate to your project
-   - Go to **Settings** → **Client Keys (DSN)**
-   - Copy your **Public Key** and **Project ID**
-
-3. Edit `.env` and update these lines:
+2. Edit `.env` and add your **Neon connection string** from Step 2:
 
 ```bash
-# Replace YOUR-ORG-ID, YOUR-PROJECT-ID, and YOUR_PUBLIC_KEY
-OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=https://YOUR-ORG-ID.ingest.us.sentry.io/api/YOUR-PROJECT-ID/integration/otlp/v1/traces
-OTEL_EXPORTER_OTLP_TRACES_HEADERS="x-sentry-auth=sentry sentry_key=YOUR_PUBLIC_KEY"
+DATABASE_URL=postgresql://user:password@ep-xyz-123.us-east-2.aws.neon.tech/neondb?sslmode=require
 ```
 
-**Example:**
+3. Add your Sentry OTLP endpoints to `.env`:
 
 ```bash
-OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=https://o4509013641854976.ingest.us.sentry.io/api/4510366124343296/integration/otlp/v1/traces
-OTEL_EXPORTER_OTLP_TRACES_HEADERS="x-sentry-auth=sentry sentry_key=abc123def456"
+OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=<your-traces-endpoint>
+OTEL_EXPORTER_OTLP_TRACES_HEADERS="<your-auth-header>"
 ```
 
-## Step 3: Start Infrastructure
+**Note:** Your instructor will show you where to get these values from your Sentry project.
 
-```bash
-docker compose up -d
-```
-
-**Note:** If you have an older Docker installation, use `docker-compose up -d` instead.
-
-Wait 10 seconds for PostgreSQL and Redis to be ready.
-
-## Step 4: Setup Database
+## Step 4: Initialize Database Schema
 
 ```bash
 npm run db:setup
 ```
+
+This creates tables and seeds sample data (products, users) in your Neon database.
 
 You should see:
 
@@ -74,7 +82,7 @@ You should see:
 📡 Mode: DIRECT
 📡 Exporting to: https://your-org.ingest.us.sentry.io/...
 🔭 OpenTelemetry instrumentation initialized
-✅ Redis connected
+✅ In-memory cache initialized
 🚀 OpenTelemetry E-commerce API Server
 📡 Server listening on port 3000
 ```
@@ -109,17 +117,17 @@ npm test
 
 ## Common Issues
 
-**"Docker compose not found"**
-→ Install Docker Desktop from https://docker.com/
-
-**"Port 5432 already in use"**
-→ You have PostgreSQL running locally. Stop it or change the port in docker-compose.yml
+**"Database connection error"**
+→ Double-check your DATABASE_URL in .env - make sure it includes `?sslmode=require`
 
 **"Not seeing traces in Sentry"**
 → Double-check your OTLP endpoint URL and auth header in .env
 
-**"Database connection error"**
-→ Wait 10-20 seconds after `docker compose up` for PostgreSQL to fully start
+**"neondb command asks for login"**
+→ This is expected - you need a free Neon account. It will open a browser to login/signup
+
+**"Can't create Neon project"**
+→ Make sure you completed the Neon signup/login in the browser
 
 ## Switching Export Modes
 
@@ -133,7 +141,7 @@ npm run mode:status
 
 ### Switch to Collector Mode
 
-**Prerequisites:** Same as Steps 1-4 above (infrastructure and database must be running)
+**Prerequisites:** Same as Steps 1-4 above (infrastructure and database must be running). You'll need an OpenTelemetry Collector running separately.
 
 ```bash
 # 1. Switch mode
@@ -143,10 +151,7 @@ npm run mode:collector
 #    OTEL_EXPORTER_OTLP_ENDPOINT=https://YOUR-ORG-ID.ingest.us.sentry.io
 #    SENTRY_AUTH_HEADER=sentry_key=YOUR_PUBLIC_KEY,sentry_version=7
 
-# 3. Start collector
-npm run collector:start
-
-# 4. Start app
+# 3. Start app
 npm start
 ```
 

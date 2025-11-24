@@ -6,7 +6,7 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react(), sentryVitePlugin({
     org: "pj-sentry-global",
-    project: "otel-ecommerce-frontend"
+    project: "sentry-build-otlp-workshop-frontend"
   })],
 
   build: {

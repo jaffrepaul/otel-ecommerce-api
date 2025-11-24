@@ -71,7 +71,7 @@ export async function initializeApp() {
   try {
     console.log('🚀 Initializing application services...');
 
-    // Initialize Redis
+    // Initialize in-memory cache
     await initializeRedis();
 
     console.log('✅ All services initialized successfully');
